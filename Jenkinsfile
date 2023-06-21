@@ -7,14 +7,46 @@ pipeline {
       parameters{
           string(name: 'SPEC', defaultValue:"cypress/e2e/1-getting-started/todo.cy.js", description: "Enter the cypress script path that you want to execute")
           choice(name: 'BROWSER', choices:['electron', 'chrome', 'edge', 'firefox'], description: "Select the browser to be used in your cypress tests")
+          booleanParam(name: 'skip_build', defaultValue: true, description: 'Set to true to skip the build stage')
+          booleanParam(name: 'skip_test', defaultValue: true, description: 'Set to true to skip the test stage')
+          booleanParam(name: 'skip_sonar', defaultValue: true, description: 'Set to true to skip the SonarQube stage')
+          booleanParam(name: 'skip_jmeter', defaultValue: false, description: 'Set to true to skip the SonarQube stage')
       }
 
-      options {
-              ansiColor('xterm')
-      }
-
+     
       stages {
+        stage('Build/Deploy app to staging') {
+            when { expression { params.skip_build != true } }
+            steps {
+              echo "Copying files to staging and restarting the app"
+                sshPublisher(
+                    publishers: [
+                        sshPublisherDesc(
+                            configName: 'staging',
+                            transfers: [
+                                sshTransfer(
+                                    cleanRemote: false,
+                                    excludes: 'node_modules/,cypress/,**/*.yml',
+                                    execCommand: '''
+                                    cd /usr/share/nginx/html
+                                    npm ci
+                                    pm2 restart todo''',
+                                    execTimeout: 1200000,
+                                    flatten: false,
+                                    makeEmptyDirs: false,
+                                    noDefaultExcludes: false,
+                                    patternSeparator: '[, ]+',
+                                    remoteDirectory: '',
+                                    remoteDirectorySDF: false,
+                                    removePrefix: '',
+                                    sourceFiles: '**/*')],
+                        usePromotionTimestamp: false,
+                        useWorkspaceInPromotion: false,
+                        verbose: true)])
+         }
+        }
         stage('Run automated tests'){
+            when { expression { params.skip_test != true } }
             steps {
               echo "Running automated tests"
                 sh 'npm prune'
@@ -40,17 +72,19 @@ pipeline {
         }
 
         stage('SonarQube analysis') {
+          when { expression { params.skip_sonar != true } }
           steps {
             script {
                       scannerHome = tool 'sonar-scanner';
                  }
-            withSonarQubeEnv('SonarCube') { // Replace this name by the one you setup in the SonarQube Jenkins configuration (step 2)
+            withSonarQubeEnv('SonarCloud') { // If you have configured more than one global server connection, you can specify its name
             sh "${scannerHome}/bin/sonar-scanner"
             }
           }
         }
 
         stage('JMeter Test') {
+            when { expression { params.skip_jmeter != true } } 
             steps {
                 script {
                     // Path to the JMeter installation directory
@@ -75,8 +109,6 @@ pipeline {
             }
         }
 
-
-       
         stage('Perform manual testing...'){
             steps {
                 timeout(activity: true, time: 5) {
