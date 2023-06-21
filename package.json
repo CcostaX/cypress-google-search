@@ -2,6 +2,7 @@
   "scripts": {
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
+    "e2e:staging1spec": "cypress run --config --browser ${BROWSER} --spec ${SPEC} --reporter mochawesome",
     "cypress:run:chrome": "cypress run --browser chrome --headless"
   },
   "devDependencies": {
