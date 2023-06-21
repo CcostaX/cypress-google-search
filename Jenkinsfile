@@ -42,12 +42,11 @@ pipeline {
         }
 
         stage('SonarQube analysis') {
-          when { expression { params.skip_sonar != true } }
           steps {
             script {
                       scannerHome = tool 'sonar-scanner';
                  }
-            withSonarQubeEnv('SonarCloud') { // If you have configured more than one global server connection, you can specify its name
+            withSonarQubeEnv('SonarCube') { // Replace this name by the one you setup in the SonarQube Jenkins configuration (step 2)
             sh "${scannerHome}/bin/sonar-scanner"
             }
           }
